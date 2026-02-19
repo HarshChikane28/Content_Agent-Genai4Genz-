@@ -1,197 +1,327 @@
-# ⚡ ViralOS — AI Viral Content System
+ViralOS — AI Viral Content Generation System
 
-A web app that scrapes top LinkedIn posts, runs sentiment analysis via **Google Gemini**, and generates 3 viral posts tailored to your niche.
+ViralOS is a full-stack application that scrapes LinkedIn posts within a selected niche and generates high-performing LinkedIn content using Google Gemini.
 
-Built for hackathon. Runs fully locally. Zero paid dependencies required in mock mode.
+The system runs locally and demonstrates a clean AI pipeline architecture: data collection, prompt construction, content generation, and structured response delivery.
 
----
+This repository focuses on how the system works internally rather than presenting a hackathon-style demo.
 
-## 🗂 Project Structure
+Overview
 
-```
+The application consists of two layers:
+
+Frontend (React + Vite)
+
+Backend (FastAPI + Gemini API)
+
+The backend is responsible for:
+
+Collecting LinkedIn posts
+
+Constructing AI prompts
+
+Calling Gemini
+
+Storing generated results
+
+Returning structured responses
+
+The frontend is responsible for:
+
+Collecting user input
+
+Triggering the pipeline
+
+Displaying generated posts
+
+High-Level Flow
+
+The system follows a simple linear pipeline:
+
+User selects a niche.
+
+Backend retrieves LinkedIn posts for that niche.
+
+Posts are summarized into a structured prompt.
+
+Gemini generates three LinkedIn posts.
+
+Generated posts are stored in SQLite.
+
+Results are returned to the frontend.
+
+There is only one AI call in the pipeline.
+
+Project Structure
 viral-content-system/
 ├── backend/
-│   ├── main.py          # FastAPI app + pipeline orchestration
-│   ├── gemini_agent.py  # Gemini AI: sentiment analysis + content generation
-│   ├── scraper.py       # Mock data + optional Apify LinkedIn scraper
+│   ├── main.py
+│   ├── scraper.py
+│   ├── gemini_agent.py
 │   ├── requirements.txt
-│   └── .env.example     # Copy to .env and fill in your keys
+│   └── .env
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx
-│   │   ├── index.css
-│   │   ├── main.jsx
 │   │   └── components/
-│   │       ├── Header.jsx
-│   │       ├── RunForm.jsx
-│   │       ├── LoadingScreen.jsx
-│   │       ├── GeneratedPosts.jsx
-│   │       └── AnalysisResults.jsx
 │   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
+│   └── package.json
 └── README.md
-```
 
----
+Backend Architecture
+main.py
 
-## 🚀 Quick Start (Local)
+This is the FastAPI entry point.
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- npm or yarn
+Responsibilities:
 
----
+Defines API endpoints
 
-### Step 1 — Backend Setup
+Coordinates the scraping and AI generation process
 
-```bash
-# Navigate to backend
+Stores results in SQLite
+
+Returns structured responses
+
+Primary endpoint:
+
+POST /api/run
+
+When called, it:
+
+Calls get_linkedin_posts() from scraper.py
+
+Passes the posts to generate_viral_content() in gemini_agent.py
+
+Saves generated content in SQLite
+
+Returns both scraped and generated data
+
+scraper.py
+
+Handles data retrieval.
+
+It supports two modes:
+
+Mock data (default fallback)
+
+Real LinkedIn scraping via Apify (if APIFY_TOKEN exists in .env)
+
+The function:
+
+get_linkedin_posts(niche, num_posts)
+
+
+Returns normalized post objects with:
+
+url
+
+author
+
+text
+
+likes
+
+comments
+
+shares
+
+This normalization ensures the AI layer always receives consistent structured input.
+
+gemini_agent.py
+
+Handles AI interaction.
+
+The function:
+
+generate_viral_content(niche, platform, posts)
+
+
+Performs the following:
+
+Extracts engagement signals from scraped posts.
+
+Builds a structured prompt summarizing high-performing content.
+
+Sends the request to Gemini 1.5 Flash using the official v1 endpoint.
+
+Parses and returns generated content.
+
+The API key is loaded from environment variables:
+
+GEMINI_API_KEY=your_key_here
+
+
+The key is sent through request headers using:
+
+x-goog-api-key
+
+
+Only one AI request is made per pipeline execution.
+
+Database
+
+SQLite is used for local persistence.
+
+Table: generated_content
+
+Columns:
+
+id
+
+created_at
+
+niche
+
+platform
+
+content
+
+No external database setup is required.
+
+Frontend Architecture
+
+The frontend is built using React and Vite.
+
+Main components:
+
+App.jsx — state management and pipeline trigger
+
+RunForm.jsx — user input
+
+GeneratedPosts.jsx — output display
+
+LoadingScreen.jsx — async feedback
+
+Header.jsx — layout
+
+The frontend sends a POST request to:
+
+http://localhost:8000/api/run
+
+
+With payload:
+
+{
+  "niche": "growth and mindset",
+  "platform": "LinkedIn",
+  "num_posts": 5
+}
+
+
+The backend returns:
+
+{
+  "scraped_posts": [...],
+  "generated_posts": [...],
+  "run_id": 14
+}
+
+
+The UI renders the generated posts only.
+
+Running the Application
+Backend Setup
 cd backend
-
-# Create virtual environment (recommended)
 python -m venv venv
-source venv/bin/activate        # Mac/Linux
-# venv\Scripts\activate          # Windows
 
-# Install dependencies
+
+Activate environment:
+
+Mac/Linux:
+
+source venv/bin/activate
+
+
+Windows:
+
+venv\Scripts\activate
+
+
+Install dependencies:
+
 pip install -r requirements.txt
 
-# Set up environment variables
-cp .env.example .env
-```
 
-Now open `.env` and add your Gemini API key:
-```
+Create .env file:
+
 GEMINI_API_KEY=your_key_here
-```
 
-> 🔑 **Get a FREE Gemini API key** at: https://aistudio.google.com/app/apikey
-> The free tier is more than enough for a hackathon demo.
 
-```bash
-# Start the backend
-python main.py
-# → Running at http://localhost:8000
-# → API docs at http://localhost:8000/docs
-```
+Start server:
 
----
+uvicorn main:app --reload
 
-### Step 2 — Frontend Setup
 
-Open a **new terminal tab**:
+Backend runs at:
 
-```bash
-# Navigate to frontend
+http://localhost:8000
+
+Frontend Setup
+
+In a new terminal:
+
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start dev server
 npm run dev
-# → Running at http://localhost:5173
-```
 
----
 
-### Step 3 — Open the App
+Frontend runs at:
 
-Visit **http://localhost:5173** in your browser.
+http://localhost:5173
 
----
+API Endpoints
 
-## 🧪 Running Without a Gemini Key
+POST /api/run
+Runs the scraping and generation pipeline.
 
-The app works fully in **mock mode** without any API keys:
-- Select **Mock Data** as the data source (default)
-- The pipeline will use realistic pre-built LinkedIn post samples
-- Sentiment analysis and content generation fall back to smart mock responses
+GET /api/history
+Returns previously generated posts.
 
-This lets you demo the full UI flow at a hackathon without any setup.
+DELETE /api/history
+Clears stored results.
 
----
+GET /docs
+Interactive API documentation via Swagger.
 
-## 🔄 Pipeline Flow
+Environment Variables
 
-```
-User Input (niche + keywords)
-    ↓
-[Scraper] LinkedIn posts (mock OR Apify)
-    ↓
-[Gemini] Sentiment analysis per post
-  - overall_sentiment (1-5)
-  - tool_usefulness (1-5)
-  - common_questions
-  - key_insights
-    ↓
-[Gemini] Generate 3 viral posts
-  - Bold / Vulnerable / Data-Driven / Contrarian / Storytelling
-  - Hook + Body + CTA + Hashtags + Viral Score
-    ↓
-[SQLite] Save results locally
-    ↓
-[Frontend] Display results dashboard
-```
+Required:
 
----
+GEMINI_API_KEY=your_key_here
 
-## 🌐 API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/run` | Run the full pipeline |
-| GET  | `/api/history` | Get past analyses + generated posts |
-| DELETE | `/api/history` | Clear local history |
-| GET  | `/docs` | Interactive API docs (Swagger) |
+Optional:
 
-### POST `/api/run` payload:
-```json
-{
-  "niche": "B2B SaaS",
-  "platform": "LinkedIn",
-  "keywords": ["viral content", "thought leadership"],
-  "num_posts": 5,
-  "use_mock": true,
-  "apify_token": null
-}
-```
+APIFY_TOKEN=your_apify_token
 
----
 
-## 🔌 Optional: Real LinkedIn Scraping with Apify
+If APIFY_TOKEN is not provided, the system falls back to mock data.
 
-1. Sign up at https://apify.com (free tier available)
-2. Copy your API token from Settings → Integrations
-3. Add to `.env`: `APIFY_TOKEN=apify_api_xxxx`
-4. In the UI, switch Data Source to **Real Apify Scraper** and paste your token
+Design Decisions
 
----
+FastAPI provides a lightweight, high-performance API layer.
 
-## 🛠 Tech Stack
+SQLite keeps the system portable and easy to run locally.
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18 + Vite |
-| Styling | Pure CSS (no Tailwind needed) |
-| Backend | FastAPI (Python) |
-| AI Agent | Google Gemini 1.5 Flash |
-| Database | SQLite (local file, zero config) |
-| Scraping | Mock data + optional Apify |
+Gemini 1.5 Flash balances speed and quality.
 
----
+Mock mode allows offline demonstration.
 
-## 🧩 Extending for the Hackathon
+AI logic is isolated in a dedicated module for easy replacement.
 
-Some quick wins to add features:
-- **More platforms**: Add Twitter/Instagram scrapers in `scraper.py`
-- **Scheduled runs**: Use `APScheduler` in `main.py`
-- **Export**: Add a `/api/export` endpoint that returns CSV
-- **Auth**: Add simple API key check in FastAPI middleware
+Extending the System
 
----
+Potential improvements:
 
-## 📝 License
-MIT — use freely for your hackathon!
+Structured JSON output from Gemini
+
+Additional platforms (Twitter, Instagram)
+
+Scheduled content generation
+
+Replace SQLite with PostgreSQL
+
+Add authentication middleware
+
+Add export endpoint for CSV or Markdown
